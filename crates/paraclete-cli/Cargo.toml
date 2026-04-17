@@ -1,0 +1,36 @@
+[package]
+name = "paraclete-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Thin HTTP client CLI for Paraclete (jobs, runs, diff)."
+
+[[bin]]
+name = "paraclete"
+path = "src/main.rs"
+
+[dependencies]
+paraclete-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+camino.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+clap.workspace = true
+comfy-table.workspace = true
+urlencoding.workspace = true
+
+[dev-dependencies]
+paraclete-service = { path = "../paraclete-service" }
+paraclete-store = { path = "../paraclete-store" }
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+axum.workspace = true
+tower-http.workspace = true
+http-body-util.workspace = true
+tower.workspace = true

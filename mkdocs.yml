@@ -1,0 +1,64 @@
+site_name: Paraclete
+site_description: Forensic data exploration engine — documentation
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.sections
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.magiclink
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Domain model: domain-model.md
+  - Phase 0: phase-0.md
+  - Phase 1: phase-1.md
+  - Phase 2: phase-2.md
+  - Phase 3: phase-3.md
+  - Phase 4: phase-4.md
+  - Phase 5: phase-5.md
+  - Phase 6: phase-6.md
+  - Phase 7: phase-7.md
+  - Phase 8: phase-8.md
+  - Implementation log: implementation-log.md
+  - ADRs:
+      - "0001: Rust core + Python plugins": adr/0001-rust-core-python-plugin.md
+      - "0002: Engine before HTTP": adr/0002-engine-before-http.md
+      - "0003: Parquet-first, not Parquet-only": adr/0003-parquet-first-not-parquet-only.md
+      - "0004: SQLite-first persistence": adr/0004-sqlite-first-persistence.md
+      - "0005: Canonical JSON blob + projections": adr/0005-canonical-json-blob-and-projections.md
+      - "0006: FailureKind taxonomy": adr/0006-failure-kind-taxonomy.md
+      - "0007: Application service layer": adr/0007-application-service-layer.md
+      - "0008: HTTP API MVP": adr/0008-http-api-mvp.md
+      - "0009: Offset pagination": adr/0009-offset-pagination.md
+      - "0010: In-process async scan jobs": adr/0010-in-process-async-scan-jobs.md
+      - "0011: HTTP async scan submission": adr/0011-http-async-scan-submission.md
+      - "0012: HTTP-first CLI": adr/0012-http-first-cli.md
+      - "0013: Stale-job recovery policy": adr/0013-stale-job-recovery-policy.md
+      - "0014: Worker lease + heartbeat": adr/0014-worker-lease-heartbeat.md
+
+plugins:
+  - search

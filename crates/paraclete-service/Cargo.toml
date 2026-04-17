@@ -1,0 +1,34 @@
+[package]
+name = "paraclete-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Application service layer and HTTP API for Paraclete."
+
+[[bin]]
+name = "paraclete-http"
+path = "src/bin/paraclete-http.rs"
+
+[dependencies]
+paraclete-types.workspace = true
+paraclete-core = { path = "../paraclete-core" }
+paraclete-store = { path = "../paraclete-store" }
+axum.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+camino.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true
+tower-http.workspace = true
+utoipa.workspace = true
+
+[dev-dependencies]
+http-body-util.workspace = true
+tempfile = "3"
+tower.workspace = true
+urlencoding.workspace = true
