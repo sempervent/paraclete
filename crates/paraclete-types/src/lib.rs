@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 mod assets;
+mod auth;
 mod dataset;
 mod failure;
 mod finding;
@@ -24,6 +25,7 @@ mod validation;
 mod version;
 
 pub use assets::{AssetRecord, InspectionStatus, ParseConfidence, ProbeDepth, ProbeMetadata};
+pub use auth::{AuthPrincipal, AuthRole, AuthTokenId, AuthTokenStatus};
 pub use dataset::{
     ColumnProfile, Dataset, DatasetFile, FieldDefinition, GroupingKind, PartitionLayout,
     PartitionScheme, PartitionSegment, SchemaSnapshot,

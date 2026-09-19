@@ -13,7 +13,9 @@ use crate::fingerprint::{finding_fingerprint_payload, sort_json_value};
 use crate::PartitionSegment;
 
 /// Severity guides triage ordering; it is not a substitute for human judgment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum FindingSeverity {
     Info,
@@ -24,7 +26,9 @@ pub enum FindingSeverity {
 }
 
 /// Taxonomy bucket for analytics, dashboards, and policy routing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum FindingCategory {
     Format,
@@ -40,9 +44,10 @@ pub enum FindingCategory {
 }
 
 /// Where a finding applies within a dataset surface.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct FindingLocation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<String>)]
     pub file: Option<Utf8PathBuf>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub columns: Vec<String>,
@@ -53,7 +58,9 @@ pub struct FindingLocation {
 }
 
 /// Stable evidence classification for archival and diffing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceKind {
     FileSlice,
@@ -66,7 +73,7 @@ pub enum EvidenceKind {
 }
 
 /// Stable location reference for evidence (paths as UTF-8 strings for JSON portability).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 pub struct EvidenceLocationRef {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
@@ -77,7 +84,7 @@ pub struct EvidenceLocationRef {
 }
 
 /// Supplementary pointer-style references (labels, URIs, row-group hints).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct EvidenceReference {
     pub label: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -85,7 +92,7 @@ pub struct EvidenceReference {
 }
 
 /// Evidence record: kind + summary + optional stable location + optional structured payload.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Evidence {
     pub id: Uuid,
     pub kind: EvidenceKind,
@@ -99,7 +106,7 @@ pub struct Evidence {
 }
 
 /// Optional remediation guidance separate from neutral detail text.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Recommendation {
     pub summary: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -107,7 +114,9 @@ pub struct Recommendation {
 }
 
 /// Algorithm identifier for fingerprint digests.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum FingerprintAlgorithm {
     /// Legacy fingerprint (unordered JSON); retained for decoding old reports only.
@@ -117,14 +126,14 @@ pub enum FingerprintAlgorithm {
 }
 
 /// Dedupe-friendly fingerprint derived from stable finding fields.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct FindingFingerprint {
     pub algorithm: FingerprintAlgorithm,
     pub digest: String,
 }
 
 /// A single structured issue discovered during a scan.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Finding {
     pub id: Uuid,
     pub code: FindingCode,

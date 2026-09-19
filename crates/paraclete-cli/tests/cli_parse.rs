@@ -13,7 +13,9 @@ fn help_lists_commands() {
         .stdout(predicate::str::contains("scan"))
         .stdout(predicate::str::contains("job"))
         .stdout(predicate::str::contains("run"))
-        .stdout(predicate::str::contains("diff"));
+        .stdout(predicate::str::contains("diff"))
+        .stdout(predicate::str::contains("whoami"))
+        .stdout(predicate::str::contains("token"));
 }
 
 #[test]

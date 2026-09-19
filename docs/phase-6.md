@@ -8,7 +8,7 @@ Paraclete can **enqueue** scan work over HTTP, **persist** job rows in SQLite, *
 
 - `crates/paraclete-types/src/job.rs`, `crates/paraclete-types/src/lib.rs`
 - `crates/paraclete-store/migrations/20250416120000_scan_jobs.sql`, `crates/paraclete-store/src/sqlite_store.rs`, `crates/paraclete-store/src/error.rs`, `crates/paraclete-store/src/lib.rs`
-- `crates/paraclete-service/src/service.rs`, `crates/paraclete-service/src/worker.rs`, `crates/paraclete-service/src/http/mod.rs`, `crates/paraclete-service/src/http/handlers.rs`, `crates/paraclete-service/src/api_types.rs`, `crates/paraclete-service/src/error.rs`, `crates/paraclete-service/src/openapi.rs`, `crates/paraclete-service/src/lib.rs`, `crates/paraclete-service/tests/http_api.rs`
+- `crates/paraclete-service/src/service.rs`, `crates/paraclete-service/src/worker.rs`, `crates/paraclete-service/src/http/mod.rs`, `crates/paraclete-service/src/http/handlers.rs`, `crates/paraclete-service/src/api_types.rs`, `crates/paraclete-service/src/error.rs`, `crates/paraclete-service/src/openapi/`, `crates/paraclete-service/src/lib.rs`, `crates/paraclete-service/tests/http_api.rs`
 - `docs/phase-6.md`, `docs/adr/0010-in-process-async-scan-jobs.md`, `docs/adr/0011-http-async-scan-submission.md`
 - `docs/architecture.md`, `docs/domain-model.md`, `docs/implementation-log.md`, `mkdocs.yml`, `README.md`
 

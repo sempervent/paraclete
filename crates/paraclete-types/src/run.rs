@@ -10,7 +10,9 @@ use uuid::Uuid;
 use crate::{ScanReport, ScanSummary, ScanTarget};
 
 /// Stable identifier for one persisted scan execution (distinct from `ScanRequest.scan_id`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(transparent)]
 pub struct RunId(pub Uuid);
 
@@ -33,7 +35,9 @@ impl std::fmt::Display for RunId {
 }
 
 /// High-level completion status for a stored run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum RunOutcome {
     /// Scan finished and `ScanReport.summary.partial_inspection` is false.
@@ -43,7 +47,9 @@ pub enum RunOutcome {
 }
 
 /// Normalized identity for listing history of the “same” target across runs (local paths only in Phase 4).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 pub struct TargetIdentity {
     /// Stable discriminator, for example `local_file`, `local_directory`, `logical_dataset`.
     pub target_kind: String,
@@ -75,7 +81,7 @@ impl TargetIdentity {
 }
 
 /// Pointer to a persisted canonical report (library boundary; not HTTP).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 pub struct StoredReportRef {
     pub run_id: RunId,
     /// Hex-encoded SHA-256 of the canonical JSON bytes stored for this run (after redaction).
@@ -84,7 +90,7 @@ pub struct StoredReportRef {
 }
 
 /// Metadata for a persisted scan run (row-shaped for storage and APIs).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 pub struct ScanRun {
     pub run_id: RunId,
     pub request_scan_id: Uuid,
@@ -101,7 +107,7 @@ pub struct ScanRun {
 }
 
 /// Lightweight row for listing runs.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ScanRunListItem {
     pub run_id: RunId,
     pub request_scan_id: Uuid,
@@ -111,7 +117,7 @@ pub struct ScanRunListItem {
 }
 
 /// First-class diff between two materialized reports (deterministic ordering).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct RunDiff {
     pub run_a: RunId,
     pub run_b: RunId,
@@ -121,7 +127,7 @@ pub struct RunDiff {
     pub summary_delta: SummaryDelta,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, utoipa::ToSchema)]
 pub struct SummaryDelta {
     pub discovered_assets_delta: i64,
     pub inspected_assets_delta: i64,
@@ -133,14 +139,14 @@ pub struct SummaryDelta {
 }
 
 /// Per-finding fingerprint change (digest strings).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct FindingDelta {
     pub added: Vec<String>,
     pub removed: Vec<String>,
 }
 
 /// Policy applied before persisting blobs/projections (Phase 4 baseline; expand later).
-#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 pub struct RedactionPolicy {
     /// Remove `AssetRecord.inspection_hints` before persistence.
     pub strip_probe_inspection_hints: bool,
@@ -165,7 +171,7 @@ impl RedactionPolicy {
 }
 
 /// Retention hints (placeholder for TTL / export; storage honors redaction first).
-#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 pub struct RetentionPolicy {
     /// When true, storage may omit non-indexed large blobs in future phases (no effect in SQLite v1).
     pub prefer_minimal_projections: bool,

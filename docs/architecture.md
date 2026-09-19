@@ -44,7 +44,7 @@ remains for synchronous dev/tests (**`201`**).
 
 - `paraclete-types` — durable contracts, namespaced finding codes, scan plans, evidence shape, asset accounting, run/diff/redaction types
 - `paraclete-core` — local resolution, Parquet footer reads, dataset inference (anchor + schema + part-file hints), shallow text, built-in rules
-- `paraclete-store` — SQLite persistence: runs, JSON blobs, asset/dataset/finding projections, scan jobs queue, integrity helper
+- `paraclete-store` — SQLite + Postgres persistence: runs, JSON blobs, projections, scan jobs, **`auth_tokens`**, **`StoreBackend`**
 - `paraclete-service` — application service + Axum HTTP + OpenAPI (`paraclete-http` binary)
 - `paraclete-cli` — `paraclete` terminal client over `/api/v1` only (no local engine/store in normal use)
 - `paraclete-report` — JSON + Markdown stubs + validation helpers
@@ -79,13 +79,68 @@ flowchart LR
   P -. manifest + JSON .-> M
 ```
 
+## Authentication (Phase 9)
+
+**Axum middleware** (nested under **`/api/v1`**) validates **`Authorization: Bearer`**, loads a row from
+**`auth_tokens`** by **SHA-256** hash, checks **role** against a small route policy, and attaches
+**`AuthPrincipal`** to the request. Handlers remain free of ad hoc auth checks; **`GET /api/v1/health`**
+is mounted **outside** the protected nest. See **`docs/phase-9.md`** and ADRs **0015**–**0016**.
+
+## Token administration (Phase 11)
+
+**Admin-only** routes under **`/api/v1/admin/tokens`** are authorized by the same Bearer middleware with
+**`AuthRole::Admin`**. **`ParacleteService`** implements create/list/get/disable/**rotate**; the active store (**`StoreBackend`**: SQLite or Postgres)
+persists hashes, optional **`note`**, **`last_used_at`**, **`replaced_by_token_id`**, and a short **`token_prefix`**
+for listing. Successful **`verify_bearer_token`** updates **`last_used_at`**. Handlers stay thin;
+audit emits **`token.created`**, **`token.disabled`**, and **`token.rotated`** without secrets. See **`docs/phase-11.md`**,
+**`docs/phase-16.md`**, and ADRs **0019**–**0020**, **0027**–**0028**.
+
+## OpenAPI contract (Phase 12)
+
+**`GET /api/v1/openapi.json`** is generated from **`utoipa`**: **`ApiDoc`** in **`openapi/mod.rs`** composes
+**`#[utoipa::path]`** stubs (**`openapi/paths.rs`**) with schemas derived from Rust types (**`utoipa::ToSchema`**
+on DTOs and shared JSON shapes, **`utoipa::IntoParams`** for `Query` structs). **`bearerAuth`** is
+registered via a **`Modify`** hook. This keeps the published contract aligned with serde field names and
+enums; see **`docs/phase-12.md`** and ADRs **0021**–**0022**.
+
+## Persistence (Phase 15 + Phase 17)
+
+**SQLite**: **`SqliteScanStore::connect`** (defaults) or **`connect_with_config`**
+(**`SqliteStoreConfig`** in `crates/paraclete-store/src/sqlite_config.rs`). Connections use **WAL**,
+**`synchronous=NORMAL`** (with WAL), **`foreign_keys=ON`**, a **5s** busy timeout, and a small pool (**5**).
+Migrations live under **`crates/paraclete-store/migrations/`**; see **`migrations/README.md`**.
+
+**Postgres**: **`PostgresScanStore::connect`** applies **`migrations/postgres/`**. **`PARACLETE_DATABASE_URL`** starting with
+**`postgres://`** or **`postgresql://`** selects Postgres; otherwise SQLite (**`paraclete-http`** uses **`StoreBackend::connect`**).
+
+**`ParacleteService`** depends on **`StoreBackend`** (no SQL in the service crate). See **`docs/postgres-sqlite-compatibility.md`**,
+ADR **0026**, **0029**, **0030**. **Backup (SQLite)**: treat **`-wal`** / **`-shm`** files as part of the database state or use SQLite’s backup API.
+
+## Terminal UI (Phase 13)
+
+**`paraclete-tui`** is a **ratatui** front-end that uses **`paraclete_cli::ApiClient`** only: the same
+**`reqwest`** wrapper and JSON DTOs as the **`paraclete`** CLI. It does not open SQLite or construct
+**`ParacleteService`** locally. Session state (URL, token) stays in memory unless set via environment
+variables. See **`docs/phase-13.md`** and ADRs **0023**–**0024**.
+
+## Observability (Phase 10)
+
+**Prometheus** metrics are recorded via the **`metrics`** crate and scraped from **`GET /metrics`**
+(unauthenticated by default; protect at the edge in production — see ADR **0018**). **HTTP middleware**
+records request duration and counts with **normalized routes**; **`X-Request-Id`** correlates responses.
+**Audit-style** lines use **`tracing`** with **`target = "paraclete_audit"`** and stable **`event`**
+names (tokens are never logged). **`ParacleteService`** times scan engine and persist paths; the **worker**
+emits job lifecycle, lease renewal, and stale-recovery metrics and a **`paraclete.job`** span. Store
+failures increment **`paraclete_store_errors_total{kind}`** from **`AppError`**. See **`docs/phase-10.md`**
+and ADRs **0017**–**0018**.
+
 ## Data flow (Phase 6: async scans → jobs → worker → engine + store)
 
 ```mermaid
 sequenceDiagram
   participant Http as Axum /api/v1
   participant App as ParacleteService
-  participant St as SqliteScanStore
+  participant St as Store (SQLite or Postgres)
   participant W as Job worker
   participant Eng as ScanEngine
   participant Val as validate_report
@@ -130,7 +185,7 @@ Phase 2 (informational findings) until dedicated parsers arrive.
 
 - `crates/paraclete-types` — durable JSON-friendly contracts
 - `crates/paraclete-core` — engine traits + orchestrator skeleton
-- `crates/paraclete-store` — SQLite scan history (runs, blobs, projections, diff helpers)
+- `crates/paraclete-store` — SQLite scan history (runs, blobs, projections, diff helpers, hardened connection defaults)
 - `crates/paraclete-service` — `ParacleteService` + Axum HTTP + OpenAPI
 - `crates/paraclete-report` — JSON + Markdown render stubs + validation helpers
 - `crates/paraclete-plugin-protocol` — Rust ↔ Python protocol structs + executor trait

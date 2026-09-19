@@ -1,4 +1,4 @@
-//! Thin HTTP client library for the Paraclete CLI (`paraclete` binary).
+//! HTTP client library for the Paraclete CLI (`paraclete` binary) and **`paraclete-tui`**.
 
 #![forbid(unsafe_code)]
 

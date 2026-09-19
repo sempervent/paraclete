@@ -36,3 +36,4 @@ dist/
 
 # Local docs venv (optional)
 .venv-docs/
+.venv-mkdocs/

@@ -43,6 +43,16 @@ nav:
   - Phase 6: phase-6.md
   - Phase 7: phase-7.md
   - Phase 8: phase-8.md
+  - Phase 9: phase-9.md
+  - Phase 10: phase-10.md
+  - Phase 11: phase-11.md
+  - Phase 12: phase-12.md
+  - Phase 13: phase-13.md
+  - Phase 14: phase-14.md
+  - Phase 15: phase-15.md
+  - Phase 16: phase-16.md
+  - Phase 17: phase-17.md
+  - "Postgres vs SQLite (notes)": postgres-sqlite-compatibility.md
   - Implementation log: implementation-log.md
   - ADRs:
       - "0001: Rust core + Python plugins": adr/0001-rust-core-python-plugin.md
@@ -59,6 +69,22 @@ nav:
       - "0012: HTTP-first CLI": adr/0012-http-first-cli.md
       - "0013: Stale-job recovery policy": adr/0013-stale-job-recovery-policy.md
       - "0014: Worker lease + heartbeat": adr/0014-worker-lease-heartbeat.md
+      - "0015: Bearer token auth foundation": adr/0015-bearer-token-auth-foundation.md
+      - "0016: Authorization roles": adr/0016-authorization-roles.md
+      - "0017: Observability model": adr/0017-observability-model.md
+      - "0018: Metrics exposure policy": adr/0018-metrics-exposure-policy.md
+      - "0019: Token lifecycle API": adr/0019-token-lifecycle-api.md
+      - "0020: One-time secret exposure policy": adr/0020-one-time-secret-exposure-policy.md
+      - "0021: OpenAPI from Rust types": adr/0021-openapi-from-rust-types.md
+      - "0022: HTTP error envelope exceptions": adr/0022-http-error-envelope-exceptions.md
+      - "0023: TUI HTTP-only": adr/0023-tui-http-only.md
+      - "0024: Shared API client library": adr/0024-shared-api-client-library.md
+      - "0025: SQLite hardening policy": adr/0025-sqlite-hardening-policy.md
+      - "0026: Postgres readiness / store boundary": adr/0026-postgres-readiness-store-boundary.md
+      - "0027: Token last_used_at policy": adr/0027-token-last-used-at-policy.md
+      - "0028: Token rotation semantics": adr/0028-token-rotation-semantics.md
+      - "0029: Dual-backend store strategy": adr/0029-dual-backend-store-strategy.md
+      - "0030: Postgres job claim semantics": adr/0030-postgres-job-claim-semantics.md
 
 plugins:
   - search

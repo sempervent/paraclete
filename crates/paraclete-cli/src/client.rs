@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use paraclete_types::AuthRole;
 use paraclete_types::{RunDiff, ScanRunListItem};
 use reqwest::Url;
 use serde::de::DeserializeOwned;
@@ -9,6 +10,7 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::api::{
+    AuthTokenCreateResponse, AuthTokenListResponse, AuthTokenRotateResponse, AuthTokenSummaryView,
     ErrorBody, HealthResponse, PagedAssets, PagedFindings, RunSummaryView, ScanJobListResponse,
     ScanJobSubmissionResponse, ScanJobView,
 };
@@ -19,17 +21,25 @@ use crate::wire::StartScanRequest;
 pub struct ApiClient {
     base: String,
     http: reqwest::Client,
+    token: Option<String>,
 }
 
 impl ApiClient {
-    pub fn new(base_url: impl Into<String>) -> Result<Self, CliError> {
+    pub fn new(base_url: impl Into<String>, token: Option<String>) -> Result<Self, CliError> {
         let base = base_url.into().trim_end_matches('/').to_string();
         Url::parse(&base).map_err(|e| CliError::Msg(format!("invalid base URL: {e}")))?;
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(300))
             .build()
             .map_err(|e| CliError::Msg(e.to_string()))?;
-        Ok(Self { base, http })
+        Ok(Self { base, http, token })
+    }
+
+    fn bearer(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match &self.token {
+            Some(t) => req.bearer_auth(t),
+            None => req,
+        }
     }
 
     fn url(&self, path: &str) -> String {
@@ -38,7 +48,7 @@ impl ApiClient {
 
     async fn get_bytes(&self, path: &str) -> Result<Vec<u8>, CliError> {
         let url = self.url(path);
-        let resp = self.http.get(url).send().await?;
+        let resp = self.bearer(self.http.get(url)).send().await?;
         let status = resp.status();
         let bytes = resp.bytes().await?.to_vec();
         if !status.is_success() {
@@ -58,7 +68,7 @@ impl ApiClient {
         body: &B,
     ) -> Result<T, CliError> {
         let url = self.url(path);
-        let resp = self.http.post(url).json(body).send().await?;
+        let resp = self.bearer(self.http.post(url)).json(body).send().await?;
         let status = resp.status();
         let bytes = resp.bytes().await?.to_vec();
         if !status.is_success() {
@@ -68,7 +78,18 @@ impl ApiClient {
     }
 
     pub async fn health(&self) -> Result<HealthResponse, CliError> {
-        self.get_json("/api/v1/health").await
+        let url = self.url("/api/v1/health");
+        let resp = self.http.get(url).send().await?;
+        let status = resp.status();
+        let bytes = resp.bytes().await?.to_vec();
+        if !status.is_success() {
+            return Err(decode_api_error(status.as_u16(), &bytes));
+        }
+        serde_json::from_slice(&bytes).map_err(|e| CliError::Decode(e.to_string()))
+    }
+
+    pub async fn whoami(&self) -> Result<crate::api::WhoAmIResponse, CliError> {
+        self.get_json("/api/v1/whoami").await
     }
 
     pub async fn submit_scan_job(
@@ -150,6 +171,59 @@ impl ApiClient {
     pub async fn diff_runs(&self, left: Uuid, right: Uuid) -> Result<RunDiff, CliError> {
         let path = format!("/api/v1/diff?left_run_id={left}&right_run_id={right}");
         self.get_json(&path).await
+    }
+
+    pub async fn admin_create_token(
+        &self,
+        label: &str,
+        role: AuthRole,
+        note: Option<&str>,
+    ) -> Result<AuthTokenCreateResponse, CliError> {
+        #[derive(Serialize)]
+        struct Body<'a> {
+            label: String,
+            role: AuthRole,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            note: Option<&'a str>,
+        }
+        let body = Body { label: label.to_string(), role, note };
+        self.post_json("/api/v1/admin/tokens", &body).await
+    }
+
+    pub async fn admin_list_tokens(&self) -> Result<AuthTokenListResponse, CliError> {
+        self.get_json("/api/v1/admin/tokens").await
+    }
+
+    pub async fn admin_get_token(&self, token_id: Uuid) -> Result<AuthTokenSummaryView, CliError> {
+        self.get_json(&format!("/api/v1/admin/tokens/{token_id}")).await
+    }
+
+    pub async fn admin_disable_token(
+        &self,
+        token_id: Uuid,
+    ) -> Result<AuthTokenSummaryView, CliError> {
+        let url = self.url(&format!("/api/v1/admin/tokens/{token_id}/disable"));
+        let resp = self.bearer(self.http.post(url)).send().await?;
+        let status = resp.status();
+        let bytes = resp.bytes().await?.to_vec();
+        if !status.is_success() {
+            return Err(decode_api_error(status.as_u16(), &bytes));
+        }
+        serde_json::from_slice(&bytes).map_err(|e| CliError::Decode(e.to_string()))
+    }
+
+    pub async fn admin_rotate_token(
+        &self,
+        token_id: Uuid,
+    ) -> Result<AuthTokenRotateResponse, CliError> {
+        let url = self.url(&format!("/api/v1/admin/tokens/{token_id}/rotate"));
+        let resp = self.bearer(self.http.post(url)).send().await?;
+        let status = resp.status();
+        let bytes = resp.bytes().await?.to_vec();
+        if !status.is_success() {
+            return Err(decode_api_error(status.as_u16(), &bytes));
+        }
+        serde_json::from_slice(&bytes).map_err(|e| CliError::Decode(e.to_string()))
     }
 }
 

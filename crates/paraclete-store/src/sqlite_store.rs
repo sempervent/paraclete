@@ -4,7 +4,7 @@ use camino::Utf8PathBuf;
 use chrono::{DateTime, Utc};
 use hex::encode as hex_encode;
 use paraclete_types::{
-    apply_redaction_policy, validate_report, DataFormat, FailureKind, InspectionStatus, JobId,
+    apply_redaction_policy, validate_report, FailureKind, InspectionStatus, JobId,
     JobRecoveryPolicy, RedactionPolicy, RunId, RunOutcome, ScanReport, ScanRun, ScanRunListItem,
     ScanSummary, TargetIdentity,
 };
@@ -18,34 +18,12 @@ use crate::labels::{
     category_label, data_format_label, grouping_kind_label, parse_data_format,
     partition_layout_label, severity_label,
 };
+use crate::sqlite_config::SqliteStoreConfig;
+use crate::sqlite_connection::connect_options;
 
-/// One row from `scan_jobs` (async orchestration; request payload is JSON text).
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct ScanJobRow {
-    pub job_id: String,
-    pub submitted_at: String,
-    pub started_at: Option<String>,
-    pub completed_at: Option<String>,
-    pub status: String,
-    pub target_kind: String,
-    pub normalized_target_key: String,
-    pub request_json: String,
-    pub failure_code: Option<String>,
-    pub failure_message: Option<String>,
-    pub run_id: Option<String>,
-    pub worker_id: Option<String>,
-    pub attempt_count: i64,
-    pub heartbeat_at: Option<String>,
-    pub leased_until: Option<String>,
-    pub recovery_note: Option<String>,
-}
-
-/// Result of [`SqliteScanStore::recover_stale_scan_jobs`].
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct StaleRecoveryStats {
-    pub requeued: u64,
-    pub failed_retries_exhausted: u64,
-}
+pub use crate::models::{
+    RunPublicMeta, ScanJobRow, StaleRecoveryStats, StoredAssetRow, StoredFindingRow,
+};
 
 /// SQLite persistence for scan runs.
 #[derive(Debug, Clone)]
@@ -54,10 +32,21 @@ pub struct SqliteScanStore {
 }
 
 impl SqliteScanStore {
-    /// Opens or creates a SQLite database and applies embedded migrations.
+    /// Opens or creates a SQLite database with hardened defaults ([`SqliteStoreConfig::default`]) and applies embedded migrations.
     pub async fn connect(database_url: impl AsRef<str>) -> Result<Self, StoreError> {
-        let pool =
-            SqlitePoolOptions::new().max_connections(5).connect(database_url.as_ref()).await?;
+        Self::connect_with_config(database_url.as_ref(), &SqliteStoreConfig::default()).await
+    }
+
+    /// Same as [`Self::connect`], with explicit [`SqliteStoreConfig`] (journal mode, synchronous mode, busy timeout, pool size).
+    pub async fn connect_with_config(
+        database_url: impl AsRef<str>,
+        config: &SqliteStoreConfig,
+    ) -> Result<Self, StoreError> {
+        let opts = connect_options(database_url.as_ref(), config)?;
+        let pool = SqlitePoolOptions::new()
+            .max_connections(config.max_connections)
+            .connect_with(opts)
+            .await?;
         sqlx::migrate!("./migrations").run(&pool).await?;
         Ok(Self { pool })
     }
@@ -781,50 +770,10 @@ impl SqliteScanStore {
         Ok(rows)
     }
 
-    /// Used by in-crate tests to assert schema and SQL invariants.
-    #[cfg(test)]
-    pub(crate) fn pool(&self) -> &SqlitePool {
+    /// Access to the underlying pool (integration tests, diagnostics).
+    pub fn pool(&self) -> &SqlitePool {
         &self.pool
     }
-}
-
-/// One row from `scan_assets` (projection; reload full `ScanReport` for complete `AssetRecord`).
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct StoredAssetRow {
-    pub path: Utf8PathBuf,
-    pub format: DataFormat,
-    pub inspection_status: InspectionStatus,
-    pub failure_kind: Option<FailureKind>,
-    pub failure_message: Option<String>,
-    pub dataset_id: Option<String>,
-}
-
-/// Run header + summary + blob digest (no `report_json`).
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RunPublicMeta {
-    pub run_id: RunId,
-    pub request_scan_id: Uuid,
-    pub target_identity: TargetIdentity,
-    pub target_json: serde_json::Value,
-    pub started_at: DateTime<Utc>,
-    pub completed_at: DateTime<Utc>,
-    pub run_outcome: RunOutcome,
-    pub engine_revision: Option<String>,
-    pub contract_schema_version: String,
-    pub report_format_version: String,
-    pub report_sha256: String,
-    pub summary: ScanSummary,
-}
-
-/// One row from `scan_findings` (projection; not a full [`paraclete_types::Finding`]).
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct StoredFindingRow {
-    pub fingerprint: String,
-    pub code: String,
-    pub severity: String,
-    pub category: String,
-    pub asset_path: Option<String>,
-    pub dataset_id: Option<String>,
 }
 
 fn stored_asset_row_from_sql(r: SqliteRow) -> Result<StoredAssetRow, StoreError> {

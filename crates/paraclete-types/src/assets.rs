@@ -7,7 +7,7 @@ use crate::DataFormat;
 use crate::FailureKind;
 
 /// Terminal state of format-specific inspection for one discovered asset.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum InspectionStatus {
     /// Footer or shallow probe completed without error.
@@ -19,7 +19,7 @@ pub enum InspectionStatus {
 }
 
 /// Bounded shallow-text probe limits and honesty signals.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ProbeMetadata {
     /// Bytes actually read from disk for this probe (may be less than file size).
     pub bytes_sampled: u64,
@@ -38,7 +38,7 @@ pub struct ProbeMetadata {
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ProbeDepth {
     /// Entire file was within the configured read cap.
@@ -47,7 +47,7 @@ pub enum ProbeDepth {
     PartialHead,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ParseConfidence {
     High,
@@ -56,8 +56,9 @@ pub enum ParseConfidence {
 }
 
 /// One resolved file with durable inspection outcome (distinct from forensic [`crate::Finding`]).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct AssetRecord {
+    #[schema(value_type = String, example = "fixtures/data.parquet")]
     pub path: Utf8PathBuf,
     pub format: DataFormat,
     pub size_bytes: u64,

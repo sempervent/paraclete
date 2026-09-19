@@ -5,7 +5,18 @@ use serde::{Deserialize, Serialize};
 
 /// Detected or declared on-disk / logical data format.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, JsonSchema,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    utoipa::ToSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum DataFormat {
@@ -17,7 +28,9 @@ pub enum DataFormat {
 }
 
 /// Declares how deeply Paraclete can inspect a format in a given phase.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum FormatSupportTier {
     /// Deepest diagnostics and metadata access (Parquet-first).

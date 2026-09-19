@@ -7,7 +7,9 @@ use uuid::Uuid;
 use crate::RunId;
 
 /// Stable identifier for one queued or completed scan job.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(transparent)]
 pub struct JobId(pub Uuid);
 
@@ -30,7 +32,9 @@ impl std::fmt::Display for JobId {
 }
 
 /// Job lifecycle state persisted in SQLite and returned over HTTP.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum JobStatus {
     Queued,
@@ -42,7 +46,7 @@ pub enum JobStatus {
 }
 
 /// Machine-readable job failure class (parallel to HTTP `AppError` codes where applicable).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum JobErrorCode {
     InvalidRequest,
@@ -57,7 +61,7 @@ pub enum JobErrorCode {
 }
 
 /// Reference from a completed job to the persisted run (if any).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 pub struct JobResultRef {
     pub job_id: JobId,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -5,6 +5,241 @@ Newest entries first.
 
 ---
 
+## 2026-04-15 — Phase 17 Postgres store + `StoreBackend`
+
+### Decisions
+
+- **`PostgresScanStore`** + **`migrations/postgres/`**; **`StoreBackend::connect`** from **`PARACLETE_DATABASE_URL`** (Postgres URL scheme vs SQLite).
+- Shared row structs in **`paraclete-store::models`**; **`ParacleteService`** takes **`StoreBackend`**.
+- Job claim on Postgres: **`FOR UPDATE SKIP LOCKED`** (ADR **0030**); dual-backend strategy ADR **0029**.
+- Tests: ignored Postgres integration tests behind **`PARACLETE_TEST_PG_URL`**; summary parity SQLite vs Postgres when configured.
+
+### Files and areas touched
+
+- `crates/paraclete-store` (`models`, `postgres_store`, `store_backend`, `auth_store`, `sqlite_store`, migrations), `crates/paraclete-service` (`service`, `paraclete-http`), `docs/` (README, architecture, domain-model, phase-17, ADRs 0029–0030, this log), `mkdocs.yml`.
+
+### Follow-ups
+
+- HA / read replicas, connection pooling tuning per environment, optional `sqlx` offline query cache for Postgres.
+
+### Deferred concerns
+
+- Distributed workers, OIDC, object stores, removing SQLite — unchanged.
+
+---
+
+## 2026-04-15 — Phase 16 token `last_used_at` + rotation
+
+### Decisions
+
+- Migration **`auth_tokens`**: **`last_used_at`**, **`replaced_by_token_id`**; verify path updates
+  **`last_used_at`** on success only.
+- **`rotate_auth_token`**: transactional new row + disable old + linkage; **`POST …/rotate`** → **`201`** +
+  **`AuthTokenRotateResponse`**; audit **`token.rotated`**.
+- CLI **`token rotate`**; OpenAPI **0.16.0**; ADRs **0027**–**0028**.
+
+### Files and areas touched
+
+- `paraclete-store` (`auth_store`, migration), `paraclete-service` (DTOs, service, handlers, auth unchanged
+  entrypoint, audit, OpenAPI, tests), `paraclete-cli`, `paraclete-tui` (token list line), docs, `mkdocs.yml`.
+
+### Follow-ups
+
+- Optional: throttle **`last_used_at`** writes if request volume requires it.
+
+### Deferred concerns
+
+- OIDC, multi-tenant RBAC, Postgres — unchanged.
+
+---
+
+## 2026-04-15 — Phase 15 persistence hardening + Postgres groundwork
+
+### Decisions
+
+- **`SqliteStoreConfig`** + **`sqlite_connection::connect_options`**: default **WAL**, **`synchronous=NORMAL`**,
+  **`foreign_keys=ON`**, **5s** busy timeout, **5** max pool connections.
+- **`SqliteScanStore::connect_with_config`**; **`pool()`** public for tests/diagnostics.
+- **`docs/postgres-sqlite-compatibility.md`**, ADRs **0025** (SQLite policy) and **0026** (store boundary /
+  Postgres path), **`migrations/README.md`**, **`src/sql/README.md`**.
+
+### Files and areas touched
+
+- `crates/paraclete-store` (`sqlite_config`, `sqlite_connection`, `sqlite_store`, `lib`, tests), `docs/phase-15.md`,
+  `docs/postgres-sqlite-compatibility.md`, `docs/adr/0025*.md`, `docs/adr/0026*.md`, `README.md`, `docs/architecture.md`,
+  `mkdocs.yml`.
+
+### Follow-ups
+
+- Postgres implementation; optional **Query/Path** extractor normalization (HTTP) from Phase 14 notes.
+
+### Deferred concerns
+
+- Distributed workers, OIDC, token rotation, object stores — unchanged.
+
+---
+
+## 2026-04-15 — Phase 14 JSON error envelope normalization
+
+### Decisions
+
+- Add **`ApiJson<T>`** in **`paraclete-service`**: wraps Axum **`Json<T>`**, maps **`JsonRejection`** →
+  **`AppError::InvalidJsonRequest`** with wire **`invalid_json_request`** and preserved HTTP statuses.
+- Extend **`ErrorCode`** / **`AppError`**, use **`ApiJson`** on **`POST`** handlers with JSON bodies;
+  update OpenAPI **0.14.0** and integration tests.
+- Amend ADR **0022** (Phase 12 exception for raw Axum JSON errors superseded for JSON bodies).
+
+### Files and areas touched
+
+- `crates/paraclete-service` (`http/extract.rs`, `error`, `handlers`, `worker`, `openapi`, tests), `docs/phase-14.md`,
+  `docs/phase-12.md`, `docs/phase-13.md`, `README.md`, `mkdocs.yml`, `docs/adr/0022-http-error-envelope-exceptions.md`.
+
+### Follow-ups
+
+- Optional: normalize **Query** / **Path** rejections into **`ErrorBody`** with dedicated codes.
+
+### Deferred concerns
+
+- Postgres/HA, OIDC, token rotation — unchanged.
+
+---
+
+## 2026-04-15 — Phase 13 TUI (`paraclete-tui`)
+
+### Decisions
+
+- New crate **`paraclete-tui`**: **ratatui** + **crossterm**, **`tokio`** event loop, **`paraclete_cli::ApiClient`** only.
+- Screens: connect, home, jobs, job watch (poll), scan submit, runs-for-target, run summary, projections
+  (assets/findings pages), diff, tokens (admin).
+- Tests: **unit** (`App` transitions), **integration** (`tests/http_flow.rs` vs in-process Axum).
+
+### Files and areas touched
+
+- `crates/paraclete-tui` (new), `Cargo.toml` workspace member, `README.md`, `docs/architecture.md`,
+  `docs/domain-model.md`, `docs/phase-13.md`, ADRs **0023**–**0024**, `mkdocs.yml`.
+
+### Follow-ups
+
+- Richer navigation (pick job/run from list); optional local token cache with explicit opt-in.
+
+### Deferred concerns
+
+- No direct store/engine from TUI; no OIDC.
+
+---
+
+## 2026-04-15 — Phase 12 OpenAPI and schema refinement
+
+### Decisions
+
+- Replace hand-built **`OpenApiBuilder`** paths with **`#[derive(OpenApi)]`** + **`openapi/paths.rs`** stubs.
+- Add **`utoipa::ToSchema`** across HTTP DTOs, `ErrorBody`, and wire-relevant **`paraclete-types`** /
+  **`paraclete-store`** rows; **`utoipa::IntoParams`** for **`Query`** structs.
+- Document **`bearerAuth`**, per-route responses (**401** / **403** / **404** / **422** / **500** where applicable),
+  and **examples** on load-bearing schemas.
+- Document Axum **malformed JSON** as a **400** edge case without claiming **`ErrorBody`** (ADR **0022**).
+
+### Files and areas touched
+
+- `paraclete-types` (ToSchema on report/diff/scan/target/job/auth rows), `paraclete-store` (projection rows),
+  `paraclete-service` (`api_types`, `error`, `openapi/*`, tests), `docs/phase-12.md`, ADRs **0021**–**0022**,
+  `README.md`, `architecture.md`, `domain-model.md`, `mkdocs.yml`.
+
+### Follow-ups
+
+- Optional: normalize **`JsonRejection`** to **`ErrorBody`** via a shared extractor; **`last_used_at`**;
+  token rotation API.
+
+### Deferred concerns
+
+- TUI, Postgres/HA, OIDC remain out of scope.
+
+---
+
+## 2026-04-17 — Phase 11 token administration API + CLI
+
+### Decisions
+
+- Routes **`/api/v1/admin/tokens`** (and **`{token_id}`** / **`disable`**) require **`AuthRole::Admin`**.
+- Store: **`create_auth_token`**, **`list_auth_tokens`**, **`get_auth_token_summary`**, **`disable_auth_token`**;
+  migration **`note`**, **`token_prefix`**; **`StoreError::AuthTokenNotFound`**.
+- API: **`AuthTokenCreateRequest`**, **`AuthTokenCreateResponse`** (includes one-time **`token_secret`**),
+  **`AuthTokenSummaryView`**, **`AuthTokenListResponse`**; wire **`token_not_found`**.
+- CLI: **`paraclete token`** (`create`, `list`, `get`, `disable`); **`whoami`** alias on **`who-am-i`**.
+- OpenAPI **0.11.0**; audit **`token.created`** / **`token.disabled`**.
+
+### Files and areas touched
+
+- `paraclete-types` (`AuthTokenStatus`), `paraclete-store`, `paraclete-service`, `paraclete-cli`, docs,
+  ADRs **0019**–**0020**, `mkdocs.yml`.
+
+### Follow-ups
+
+- Token rotation workflow; optional re-enable; **`last_used_at`** when honestly implementable.
+
+### Deferred concerns
+
+- OIDC, multi-tenant RBAC, and HA auth state remain out of scope.
+
+---
+
+## 2026-04-17 — Phase 10 observability (metrics + audit + request IDs)
+
+### Decisions
+
+- **`metrics`** + **`metrics-exporter-prometheus`** with **`GET /metrics`** (unauthenticated by default;
+  document edge protection — ADR **0018**).
+- **`paraclete_audit`** structured events with stable **`event`** names; no raw tokens.
+- Middleware: HTTP request metrics + **`X-Request-Id`**; auth metrics + audit; worker job/recovery
+  metrics + **`paraclete.job`** span; store error kind counter on **`StoreError` → `AppError`**.
+- OpenAPI **0.10.0** includes **`/metrics`**.
+
+### Files and areas touched
+
+- `crates/paraclete-service` (`observability`, `http_layers`, `auth`, `service`, `worker`, `error`,
+  `openapi`, tests), `docs/phase-10.md`, ADRs **0017**–**0018**, `README.md`, `architecture.md`,
+`domain-model.md`, `mkdocs.yml`.
+
+### Follow-ups
+
+- Optional separate **`METRICS` bind**; optional histograms for store operations; OTLP export.
+
+### Deferred concerns
+
+- Full distributed tracing backends and centralized log shipping remain out of scope.
+
+---
+
+## 2026-04-17 — Phase 9 Bearer authentication + roles
+
+### Decisions
+
+- Migration **`auth_tokens`**: **`token_hash`** (SHA-256 hex), **`label`**, **`role`**, timestamps,
+  **`disabled_at`**.
+- **`AuthRole`**: **`reader`**, **`operator`**, **`admin`** with middleware policy (scan POSTs require
+  **operator**).
+- **Middleware** on nested **`/api/v1`** routes; **`GET /api/v1/health`** public; **401** / **403** JSON
+  envelopes; **`WWW-Authenticate`** on 401.
+- **Bootstrap**: **`PARACLETE_BOOTSTRAP_TOKEN`** + optional **`PARACLETE_BOOTSTRAP_ROLE`** in **`paraclete-http`**.
+- **CLI**: **`--token`**, **`PARACLETE_TOKEN`**, **`whoami`**; **`health`** does not send Bearer.
+- **OpenAPI** **0.9.0** with **`bearerAuth`** component.
+
+### Files and areas touched
+
+- `crates/paraclete-types` (`auth`), `crates/paraclete-store`, `crates/paraclete-service`,
+  `crates/paraclete-cli`, `docs/phase-9.md`, ADRs **0015**–**0016**, `README.md`, `architecture.md`,
+  `domain-model.md`, `mkdocs.yml`.
+
+### Follow-ups
+
+- Token management API; OIDC; mTLS; rate limits; structured audit stream.
+
+### Deferred concerns
+
+- Full SSO and rich tenancy remain out of scope.
+
+---
+
 ## 2026-04-17 — Phase 8 stale-job recovery + worker lease/heartbeat
 
 ### Decisions

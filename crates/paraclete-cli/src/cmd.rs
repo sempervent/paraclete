@@ -3,25 +3,36 @@
 use std::time::{Duration, Instant};
 
 use camino::Utf8PathBuf;
-use paraclete_types::{JobStatus, ScanOptions, ScanProfile, ScanTarget};
+use paraclete_types::{AuthRole, JobStatus, ScanOptions, ScanProfile, ScanTarget};
 use tokio::time::sleep;
 
-use crate::cli::{Cli, Command, JobCmd, RunCmd, ScanCmd, SubmitArgs};
+use crate::cli::{Cli, Command, JobCmd, RunCmd, ScanCmd, SubmitArgs, TokenCmd};
 use crate::client::ApiClient;
 use crate::error::CliError;
 use crate::render::{
     print_assets, print_findings, print_health, print_job_list, print_job_submission,
-    print_job_view, print_json, print_run_list, print_run_summary,
+    print_job_view, print_json, print_run_list, print_run_summary, print_token_create,
+    print_token_list, print_token_one, print_token_rotate,
 };
 use crate::wire::StartScanRequest;
 
 pub async fn run(cli: Cli) -> Result<(), CliError> {
-    let client = ApiClient::new(&cli.base_url)?;
+    let client = ApiClient::new(&cli.base_url, cli.token.clone())?;
 
     match cli.command {
         Command::Health => {
             let h = client.health().await?;
             print_health(cli.json, &h.status)?;
+        }
+        Command::WhoAmI => {
+            let w = client.whoami().await?;
+            if cli.json {
+                print_json(&w)?;
+            } else {
+                println!("token_id: {}", w.token_id);
+                println!("label:    {}", w.label);
+                println!("role:     {:?}", w.role);
+            }
         }
         Command::Diff { left_run_id, right_run_id } => {
             let d = client.diff_runs(left_run_id, right_run_id).await?;
@@ -75,6 +86,29 @@ pub async fn run(cli: Cli) -> Result<(), CliError> {
         Command::Run(RunCmd::List { target_kind, normalized_key, limit }) => {
             let items = client.list_runs_for_target(&target_kind, &normalized_key, limit).await?;
             print_run_list(cli.json, &items)?;
+        }
+        Command::Token(TokenCmd::Create { label, role, note }) => {
+            let role: AuthRole =
+                role.parse().map_err(|e: String| CliError::Msg(format!("invalid role: {e}")))?;
+            let n = note.as_deref().map(str::trim).filter(|s| !s.is_empty());
+            let r = client.admin_create_token(&label, role, n).await?;
+            print_token_create(cli.json, &r)?;
+        }
+        Command::Token(TokenCmd::List) => {
+            let r = client.admin_list_tokens().await?;
+            print_token_list(cli.json, &r)?;
+        }
+        Command::Token(TokenCmd::Get { token_id }) => {
+            let r = client.admin_get_token(token_id).await?;
+            print_token_one(cli.json, &r)?;
+        }
+        Command::Token(TokenCmd::Disable { token_id }) => {
+            let r = client.admin_disable_token(token_id).await?;
+            print_token_one(cli.json, &r)?;
+        }
+        Command::Token(TokenCmd::Rotate { token_id }) => {
+            let r = client.admin_rotate_token(token_id).await?;
+            print_token_rotate(cli.json, &r)?;
         }
     }
     Ok(())

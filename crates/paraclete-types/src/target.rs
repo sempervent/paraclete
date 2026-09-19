@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 /// High-level classification of what is being scanned.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum TargetKind {
     LocalFile,
@@ -25,7 +27,7 @@ pub enum TargetReference {
 }
 
 /// Logical dataset identifier used when files are resolved indirectly.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct LogicalDatasetTarget {
     pub dataset_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -33,7 +35,7 @@ pub struct LogicalDatasetTarget {
 }
 
 /// Placeholder for future object-store-backed scans (S3-compatible, GCS, etc.).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ObjectStoreTargetPlaceholder {
     pub uri: Url,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -41,13 +43,15 @@ pub struct ObjectStoreTargetPlaceholder {
 }
 
 /// Concrete scan target with mutually consistent fields.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ScanTarget {
     LocalFile {
+        #[schema(value_type = String)]
         path: Utf8PathBuf,
     },
     LocalDirectory {
+        #[schema(value_type = String)]
         path: Utf8PathBuf,
     },
     LogicalDataset {

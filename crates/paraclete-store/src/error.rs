@@ -15,4 +15,8 @@ pub enum StoreError {
     RunNotFound(uuid::Uuid),
     #[error("scan job not found: {0}")]
     JobNotFound(uuid::Uuid),
+    #[error("auth token: {0}")]
+    AuthToken(String),
+    #[error("auth token not found: {0}")]
+    AuthTokenNotFound(uuid::Uuid),
 }

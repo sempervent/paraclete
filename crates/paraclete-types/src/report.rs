@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// Aggregate statistics for a completed scan.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ScanSummary {
     /// Total assets discovered during resolution (equals `files_scanned` for local scans).
     pub discovered_assets: u64,
@@ -36,7 +36,7 @@ pub struct ScanSummary {
 }
 
 /// High-level view of a single dataset within the report.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct DatasetSummary {
     pub dataset_id: String,
     pub file_count: u64,
@@ -44,14 +44,14 @@ pub struct DatasetSummary {
 }
 
 /// Per-format counts for quick triage.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct FormatSummary {
     pub format: DataFormat,
     pub file_count: u64,
 }
 
 /// Provenance and versioning for a serialized report.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ReportMetadata {
     pub scan_id: Uuid,
     pub generated_at: DateTime<Utc>,
@@ -62,7 +62,7 @@ pub struct ReportMetadata {
 }
 
 /// Top-level scan output suitable for archival and downstream rendering.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ScanReport {
     pub request: ScanRequest,
     pub metadata: ReportMetadata,

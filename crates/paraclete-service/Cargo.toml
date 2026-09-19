@@ -26,9 +26,14 @@ tracing-subscriber.workspace = true
 thiserror.workspace = true
 tower-http.workspace = true
 utoipa.workspace = true
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
 
 [dev-dependencies]
 http-body-util.workspace = true
+serial_test = "3.4.0"
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 tempfile = "3"
 tower.workspace = true
+tracing-test = { version = "0.2.6", features = ["no-env-filter"] }
 urlencoding.workspace = true

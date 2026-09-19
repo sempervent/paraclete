@@ -4,8 +4,9 @@ use comfy_table::{presets::UTF8_FULL, Attribute, Cell, ContentArrangement, Table
 use serde::Serialize;
 
 use crate::api::{
-    AssetRow, FindingRow, RunSummaryView, ScanJobListResponse, ScanJobSubmissionResponse,
-    ScanJobView,
+    AssetRow, AuthTokenCreateResponse, AuthTokenListResponse, AuthTokenRotateResponse,
+    AuthTokenSummaryView, FindingRow, RunSummaryView, ScanJobListResponse,
+    ScanJobSubmissionResponse, ScanJobView,
 };
 use crate::error::CliError;
 
@@ -183,5 +184,96 @@ pub fn print_run_list(
         ]);
     }
     println!("{table}");
+    Ok(())
+}
+
+pub fn print_token_create(json: bool, r: &AuthTokenCreateResponse) -> Result<(), CliError> {
+    if json {
+        print_json(r)?;
+    } else {
+        println!("token_id:     {}", r.token_id);
+        println!("label:        {}", r.label);
+        println!("role:         {:?}", r.role);
+        println!("created_at:   {}", r.created_at);
+        println!("token_prefix: {}", r.token_prefix.as_deref().unwrap_or("-"));
+        if let Some(n) = &r.note {
+            println!("note:         {n}");
+        }
+        println!();
+        println!("token_secret (save now; shown once):");
+        println!("{}", r.token_secret);
+    }
+    Ok(())
+}
+
+pub fn print_token_list(json: bool, r: &AuthTokenListResponse) -> Result<(), CliError> {
+    if json {
+        print_json(r)?;
+        return Ok(());
+    }
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(vec!["token_id", "label", "role", "status", "prefix", "created", "last_used"]);
+    for t in &r.items {
+        table.add_row(vec![
+            Cell::new(t.token_id.to_string()),
+            Cell::new(&t.label),
+            Cell::new(format!("{:?}", t.role)),
+            Cell::new(format!("{:?}", t.status)),
+            Cell::new(t.token_prefix.as_deref().unwrap_or("-")),
+            Cell::new(t.created_at.to_rfc3339()),
+            Cell::new(t.last_used_at.map(|d| d.to_rfc3339()).unwrap_or_else(|| "-".into())),
+        ]);
+    }
+    println!("{table}");
+    Ok(())
+}
+
+pub fn print_token_one(json: bool, r: &AuthTokenSummaryView) -> Result<(), CliError> {
+    if json {
+        print_json(r)?;
+    } else {
+        println!("token_id:      {}", r.token_id);
+        println!("label:         {}", r.label);
+        println!("role:          {:?}", r.role);
+        println!("status:        {:?}", r.status);
+        println!("created_at:    {}", r.created_at);
+        if let Some(d) = r.disabled_at {
+            println!("disabled_at:   {d}");
+        }
+        println!("token_prefix:  {}", r.token_prefix.as_deref().unwrap_or("-"));
+        if let Some(n) = &r.note {
+            println!("note:          {n}");
+        }
+        if let Some(lu) = r.last_used_at {
+            println!("last_used_at:  {lu}");
+        }
+        if let Some(rep) = r.replaced_by_token_id {
+            println!("replaced_by:   {rep}");
+        }
+    }
+    Ok(())
+}
+
+pub fn print_token_rotate(json: bool, r: &AuthTokenRotateResponse) -> Result<(), CliError> {
+    if json {
+        print_json(r)?;
+    } else {
+        println!("previous_token_id: {}", r.previous_token_id);
+        println!("new token_id:      {}", r.token_id);
+        println!("label:             {}", r.label);
+        println!("role:              {:?}", r.role);
+        println!("created_at:        {}", r.created_at);
+        println!("previous_disabled_at: {}", r.previous_disabled_at);
+        println!("token_prefix:      {}", r.token_prefix.as_deref().unwrap_or("-"));
+        if let Some(n) = &r.note {
+            println!("note:              {n}");
+        }
+        println!();
+        println!("token_secret (save now; shown once):");
+        println!("{}", r.token_secret);
+    }
     Ok(())
 }

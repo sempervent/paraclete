@@ -1,7 +1,7 @@
 //! JSON shapes returned by `/api/v1` (Deserialize for the CLI; mirrors service DTOs).
 
 use chrono::{DateTime, Utc};
-use paraclete_types::{JobErrorCode, JobStatus, RunOutcome, ScanSummary};
+use paraclete_types::{AuthTokenStatus, JobErrorCode, JobStatus, RunOutcome, ScanSummary};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -19,6 +19,13 @@ pub struct ErrorEnvelope {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct HealthResponse {
     pub status: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct WhoAmIResponse {
+    pub token_id: Uuid,
+    pub label: String,
+    pub role: paraclete_types::AuthRole,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -116,4 +123,47 @@ pub struct FindingRow {
     pub category: String,
     pub asset_path: Option<String>,
     pub dataset_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AuthTokenCreateResponse {
+    pub token_id: Uuid,
+    pub label: String,
+    pub role: paraclete_types::AuthRole,
+    pub created_at: DateTime<Utc>,
+    pub token_secret: String,
+    pub token_prefix: Option<String>,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AuthTokenSummaryView {
+    pub token_id: Uuid,
+    pub label: String,
+    pub role: paraclete_types::AuthRole,
+    pub status: AuthTokenStatus,
+    pub created_at: DateTime<Utc>,
+    pub disabled_at: Option<DateTime<Utc>>,
+    pub token_prefix: Option<String>,
+    pub note: Option<String>,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub replaced_by_token_id: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AuthTokenRotateResponse {
+    pub token_id: Uuid,
+    pub previous_token_id: Uuid,
+    pub label: String,
+    pub role: paraclete_types::AuthRole,
+    pub created_at: DateTime<Utc>,
+    pub token_secret: String,
+    pub token_prefix: Option<String>,
+    pub note: Option<String>,
+    pub previous_disabled_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AuthTokenListResponse {
+    pub items: Vec<AuthTokenSummaryView>,
 }

@@ -1,17 +1,23 @@
 //! Axum handlers — call [`crate::service::ParacleteService`] only.
 
-use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::body::Body;
+use axum::extract::{Extension, Path, Query, State};
+use axum::http::header::CONTENT_TYPE;
+use axum::http::{Response, StatusCode};
 use axum::Json;
-use paraclete_types::{JobId, RunId};
+use paraclete_types::{AuthPrincipal, AuthTokenId, JobId, RunId};
 use uuid::Uuid;
 
 use crate::api_types::{
-    DiffQuery, HealthResponse, JobListQuery, PageQuery, PagedAssetsResponse, PagedFindingsResponse,
-    StartScanRequest, TargetRunsQuery,
+    AuthTokenCreateRequest, AuthTokenCreateResponse, AuthTokenListResponse,
+    AuthTokenRotateResponse, AuthTokenSummaryView, DiffQuery, HealthResponse, JobListQuery,
+    PageQuery, PagedAssetsResponse, PagedFindingsResponse, StartScanRequest, TargetRunsQuery,
+    WhoAmIResponse,
 };
 use crate::error::AppError;
+use crate::http::extract::ApiJson;
 use crate::http::AppState;
+use crate::observability::audit;
 
 const KNOWN_TARGET_KINDS: &[&str] =
     &["local_file", "local_directory", "logical_dataset", "object_store_placeholder"];
@@ -20,10 +26,28 @@ pub async fn health() -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok" })
 }
 
+/// Prometheus text exposition (unauthenticated; scrape locally or protect at the edge).
+pub async fn prometheus_metrics(State(state): State<AppState>) -> Response<Body> {
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(CONTENT_TYPE, "text/plain; version=0.0.4")
+        .body(Body::from(state.prometheus.render()))
+        .expect("metrics response")
+}
+
+/// Returns the authenticated principal (requires a valid bearer token).
+pub async fn whoami(Extension(principal): Extension<AuthPrincipal>) -> Json<WhoAmIResponse> {
+    Json(WhoAmIResponse {
+        token_id: principal.token_id.0,
+        label: principal.label,
+        role: principal.role,
+    })
+}
+
 /// Async scan: queue job and return 202 (same handler as `POST /api/v1/jobs/scans`).
 pub async fn post_async_scan(
     State(state): State<AppState>,
-    Json(body): Json<StartScanRequest>,
+    ApiJson(body): ApiJson<StartScanRequest>,
 ) -> Result<(StatusCode, Json<crate::api_types::ScanJobSubmissionResponse>), AppError> {
     let out = state.service.submit_scan_job(body).await?;
     Ok((StatusCode::ACCEPTED, Json(out)))
@@ -32,7 +56,7 @@ pub async fn post_async_scan(
 /// Synchronous scan for dev/tests (`POST /api/v1/scans/sync`).
 pub async fn post_scan_sync(
     State(state): State<AppState>,
-    Json(body): Json<StartScanRequest>,
+    ApiJson(body): ApiJson<StartScanRequest>,
 ) -> Result<(StatusCode, Json<crate::api_types::StartScanResponse>), AppError> {
     let out = state.service.start_scan_and_persist(body).await?;
     Ok((StatusCode::CREATED, Json(out)))
@@ -118,4 +142,46 @@ pub async fn get_diff(
 ) -> Result<Json<paraclete_types::RunDiff>, AppError> {
     let d = state.service.diff_runs(RunId(q.left_run_id), RunId(q.right_run_id)).await?;
     Ok(Json(d))
+}
+
+pub async fn post_admin_tokens(
+    State(state): State<AppState>,
+    ApiJson(body): ApiJson<AuthTokenCreateRequest>,
+) -> Result<(StatusCode, Json<AuthTokenCreateResponse>), AppError> {
+    let out = state.service.admin_create_token(body).await?;
+    Ok((StatusCode::CREATED, Json(out)))
+}
+
+pub async fn get_admin_tokens(
+    State(state): State<AppState>,
+) -> Result<Json<AuthTokenListResponse>, AppError> {
+    Ok(Json(state.service.admin_list_tokens().await?))
+}
+
+pub async fn get_admin_token(
+    State(state): State<AppState>,
+    Path(token_id): Path<Uuid>,
+) -> Result<Json<AuthTokenSummaryView>, AppError> {
+    Ok(Json(state.service.admin_get_token(AuthTokenId(token_id)).await?))
+}
+
+pub async fn post_admin_token_disable(
+    State(state): State<AppState>,
+    Extension(actor): Extension<AuthPrincipal>,
+    Path(token_id): Path<Uuid>,
+) -> Result<Json<AuthTokenSummaryView>, AppError> {
+    let out = state.service.admin_disable_token(AuthTokenId(token_id)).await?;
+    audit::token_disabled(token_id, actor.token_id.0);
+    Ok(Json(out))
+}
+
+/// Rotate a token (admin): new secret once; previous token disabled in the same transaction.
+pub async fn post_admin_token_rotate(
+    State(state): State<AppState>,
+    Extension(actor): Extension<AuthPrincipal>,
+    Path(token_id): Path<Uuid>,
+) -> Result<(StatusCode, Json<AuthTokenRotateResponse>), AppError> {
+    let out = state.service.admin_rotate_token(AuthTokenId(token_id)).await?;
+    audit::token_rotated(token_id, out.token_id, actor.token_id.0);
+    Ok((StatusCode::CREATED, Json(out)))
 }

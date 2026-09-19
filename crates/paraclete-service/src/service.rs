@@ -1,30 +1,37 @@
-//! Application use cases: orchestrates `ScanEngine` and `SqliteScanStore` only.
+//! Application use cases: orchestrates `ScanEngine` and the store backend (`StoreBackend`).
+
+use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 use paraclete_core::ScanEngine;
-use paraclete_store::{ScanJobRow, SqliteScanStore, StoredAssetRow, StoredFindingRow};
+use paraclete_store::{
+    AuthTokenSummary, ScanJobRow, StoreBackend, StoredAssetRow, StoredFindingRow,
+};
 use paraclete_types::{
-    validate_report, JobErrorCode, JobId, JobStatus, RedactionPolicy, RunId, RunOutcome,
-    ScanReport, ScanRequest, ScanRunListItem, TargetIdentity,
+    validate_report, AuthTokenId, AuthTokenStatus, JobErrorCode, JobId, JobStatus, RedactionPolicy,
+    RunId, RunOutcome, ScanReport, ScanRequest, ScanRunListItem, TargetIdentity,
 };
 
 use crate::api_types::{
-    JobFailureBody, JobListQuery, PageQuery, RunSummaryView, ScanJobListResponse,
-    ScanJobSubmissionResponse, ScanJobView, StartScanRequest, StartScanResponse,
+    AuthTokenCreateRequest, AuthTokenCreateResponse, AuthTokenListResponse,
+    AuthTokenRotateResponse, AuthTokenSummaryView, JobFailureBody, JobListQuery, PageQuery,
+    RunSummaryView, ScanJobListResponse, ScanJobSubmissionResponse, ScanJobView, StartScanRequest,
+    StartScanResponse,
 };
 use crate::error::AppError;
+use crate::observability::audit;
 
 #[derive(Debug, Clone)]
 pub struct ParacleteService {
-    store: SqliteScanStore,
+    store: StoreBackend,
 }
 
 impl ParacleteService {
-    pub fn new(store: SqliteScanStore) -> Self {
-        Self { store }
+    pub fn new(store: impl Into<StoreBackend>) -> Self {
+        Self { store: store.into() }
     }
 
-    pub fn store(&self) -> &SqliteScanStore {
+    pub fn store(&self) -> &StoreBackend {
         &self.store
     }
 
@@ -42,15 +49,22 @@ impl ParacleteService {
         }
 
         let started = Utc::now();
+        let engine_start = Instant::now();
         let report = ScanEngine::run(&scan_req)?;
         validate_report(&report)?;
         let completed = Utc::now();
+        metrics::histogram!("paraclete_scan_engine_duration_seconds")
+            .record(engine_start.elapsed().as_secs_f64());
 
         let redaction =
             req.redaction.clone().unwrap_or_else(RedactionPolicy::transport_safe_persist);
 
         let run_id = RunId::new();
+        let persist_start = Instant::now();
         self.store.persist_scan_run(run_id, started, completed, &report, &redaction).await?;
+        metrics::histogram!("paraclete_run_persist_duration_seconds")
+            .record(persist_start.elapsed().as_secs_f64());
+        metrics::counter!("paraclete_runs_persisted_total").increment(1);
 
         let outcome = if report.summary.partial_inspection {
             RunOutcome::CompletedPartial
@@ -58,6 +72,7 @@ impl ParacleteService {
             RunOutcome::Completed
         };
         let identity = TargetIdentity::from_scan_target(&scan_req.target);
+        audit::run_persisted(run_id.0, &identity.target_kind, &identity.normalized_key);
         Ok(StartScanResponse {
             run_id: run_id.0,
             target_kind: identity.target_kind,
@@ -95,6 +110,8 @@ impl ParacleteService {
         let identity = TargetIdentity::from_scan_target(&req.target);
         let request_json = serde_json::to_string(&req)?;
         self.store.insert_scan_job_queued(jid, &identity, &request_json).await?;
+        metrics::counter!("paraclete_jobs_submitted_total").increment(1);
+        audit::scan_submitted(jid.0, &identity.target_kind, &identity.normalized_key);
         let submitted_at = Utc::now();
         Ok(ScanJobSubmissionResponse {
             job_id: jid.0,
@@ -195,6 +212,100 @@ impl ParacleteService {
         let total = self.store.count_findings(run_id, sev, code).await?;
         let items = self.store.list_findings_page(run_id, sev, code, offset, limit).await?;
         Ok((items, total))
+    }
+
+    pub async fn admin_create_token(
+        &self,
+        req: AuthTokenCreateRequest,
+    ) -> Result<AuthTokenCreateResponse, AppError> {
+        let label = req.label.trim();
+        if label.is_empty() {
+            return Err(AppError::InvalidRequest("label must not be empty".into()));
+        }
+        let note = req.note.as_deref().map(str::trim).filter(|s| !s.is_empty());
+        let (id, secret) = self.store().create_auth_token(label, req.role, note).await?;
+        let row = self
+            .store()
+            .get_auth_token_summary(id)
+            .await?
+            .ok_or_else(|| AppError::Internal("token row missing after create".into()))?;
+        let out = AuthTokenCreateResponse {
+            token_id: id.0,
+            label: row.label.clone(),
+            role: row.role,
+            created_at: row.created_at,
+            token_secret: secret,
+            token_prefix: row.token_prefix.clone(),
+            note: row.note.clone(),
+        };
+        audit::token_created(id.0, &row.label, row.role);
+        Ok(out)
+    }
+
+    pub async fn admin_list_tokens(&self) -> Result<AuthTokenListResponse, AppError> {
+        let rows = self.store().list_auth_tokens().await?;
+        Ok(AuthTokenListResponse { items: rows.into_iter().map(auth_token_summary_view).collect() })
+    }
+
+    pub async fn admin_get_token(&self, id: AuthTokenId) -> Result<AuthTokenSummaryView, AppError> {
+        let row = self.store().get_auth_token_summary(id).await?.ok_or(AppError::TokenNotFound)?;
+        Ok(auth_token_summary_view(row))
+    }
+
+    pub async fn admin_disable_token(
+        &self,
+        id: AuthTokenId,
+    ) -> Result<AuthTokenSummaryView, AppError> {
+        let row = self.store().disable_auth_token(id).await?;
+        Ok(auth_token_summary_view(row))
+    }
+
+    /// Rotates a token: mints a new secret, disables the old row, sets `replaced_by_token_id` on the old row.
+    pub async fn admin_rotate_token(
+        &self,
+        old_id: AuthTokenId,
+    ) -> Result<AuthTokenRotateResponse, AppError> {
+        let (new_id, secret) = self.store().rotate_auth_token(old_id).await?;
+        let row = self
+            .store()
+            .get_auth_token_summary(new_id)
+            .await?
+            .ok_or_else(|| AppError::Internal("token row missing after rotate".into()))?;
+        let old_row =
+            self.store().get_auth_token_summary(old_id).await?.ok_or_else(|| {
+                AppError::Internal("previous token row missing after rotate".into())
+            })?;
+        let previous_disabled_at = old_row.disabled_at.ok_or_else(|| {
+            AppError::Internal("previous token not marked disabled after rotate".into())
+        })?;
+        Ok(AuthTokenRotateResponse {
+            token_id: new_id.0,
+            previous_token_id: old_id.0,
+            label: row.label,
+            role: row.role,
+            created_at: row.created_at,
+            token_secret: secret,
+            token_prefix: row.token_prefix,
+            note: row.note,
+            previous_disabled_at,
+        })
+    }
+}
+
+fn auth_token_summary_view(s: AuthTokenSummary) -> AuthTokenSummaryView {
+    let status =
+        if s.disabled_at.is_some() { AuthTokenStatus::Disabled } else { AuthTokenStatus::Active };
+    AuthTokenSummaryView {
+        token_id: s.token_id.0,
+        label: s.label,
+        role: s.role,
+        status,
+        created_at: s.created_at,
+        disabled_at: s.disabled_at,
+        token_prefix: s.token_prefix,
+        note: s.note,
+        last_used_at: s.last_used_at,
+        replaced_by_token_id: s.replaced_by_token_id.map(|id| id.0),
     }
 }
 

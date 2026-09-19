@@ -3,6 +3,11 @@
 This document explains the **nouns** Paraclete uses across crates. Serialized shapes are
 implemented in `paraclete-types`; this page is the conceptual map.
 
+HTTP-specific DTOs (for example `StartScanRequest`, paginated wrappers) live in `paraclete-service`
+`api_types` and are documented in **OpenAPI** alongside shared types; see **`docs/phase-12.md`**.
+The **`paraclete`** CLI and **`paraclete-tui`** deserialize the same JSON shapes via **`paraclete_cli::api`**
+(see **`docs/phase-13.md`**).
+
 ## Scan targets
 
 A **scan target** is the user-supplied anchor for work. Phase 0 models four shapes via
@@ -95,6 +100,32 @@ The **`paraclete`** binary (**`paraclete-cli`**) is a **HTTP client** for the sa
 contracts: it submits jobs, polls status, and reads runs. It is intentionally **not** a second
 execution path—no default SQLite or **`ScanEngine`** access.
 
+## Authentication (Phase 9)
+
+**Bearer tokens** identify callers. Tokens are stored **hashed** (`SHA-256`) in **`auth_tokens`** with a
+**label**, **`AuthRole`** (**`reader`**, **`operator`**, **`admin`**), optional **`disabled_at`**, optional
+**`last_used_at`** (updated on each successful verification), and optional **`replaced_by_token_id`** when a
+row was superseded by rotation.
+**`AuthPrincipal`** (token id, label, role) is produced by the HTTP middleware and is visible on
+**`GET /api/v1/whoami`**. The CLI passes tokens via **`--token`** / **`PARACLETE_TOKEN`** (never printed by
+the client on success paths).
+
+## API tokens (Phase 11; Phase 16 usage + rotation)
+
+Beyond bootstrap, **`admin`** callers can **create** tokens (**`label`**, **`role`**, optional **`note`**),
+**list** and **get** metadata (**`AuthTokenStatus`**: **`active`** / **`disabled`**), **disable** rows, and
+**rotate** an active token (**`POST …/tokens/{id}/rotate`**) — minting a **new** row and disabling the old one
+with linkage (**`replaced_by_token_id`**). The cleartext secret is returned **once** on create and **once** on
+rotate; stored form is **SHA-256** only, plus a non-secret **`token_prefix`** (first 12 characters) for recognition in lists.
+
+## Observability (Phase 10)
+
+**Metrics** are exposed for scraping at **`GET /metrics`** (Prometheus text). **Audit events** are
+structured **`tracing`** records (**`target = "paraclete_audit"`**, stable **`event`** names such as
+**`auth.accepted`**, **`scan.submitted`**, **`job.completed`**) with correlation fields (**`job_id`**,
+**`run_id`**, **`token_id`**, **`token_label`**, **`role`**, **`failure_code`**, etc.) — **never** raw
+tokens. **HTTP** responses include **`X-Request-Id`** (UUID) for request-level correlation with logs.
+
 ## Findings and evidence
 
 A **finding** is the primary user-facing atom of insight. It must be:
@@ -167,7 +198,7 @@ Contract versions are explicit in metadata (**`0.5.0`** as of Phase 4 for schema
 - **`RunDiff` / `FindingDelta` / `SummaryDelta`** — deterministic material diff between two deserialized reports.
 - **`RedactionPolicy` / `RetentionPolicy`** — pre-persist stripping of probes, hints, evidence payloads, and optional failure-message truncation; retention is a placeholder for TTL / export policy.
 
-The archival **`ScanReport`** JSON remains the **source of truth**; SQLite tables are **projections** for query and integrity checks.
+The archival **`ScanReport`** JSON remains the **source of truth**; relational tables (**SQLite** or **Postgres**, via **`StoreBackend`**) are **projections** for query and integrity checks.
 
 ## HTTP transport (Phase 5)
 

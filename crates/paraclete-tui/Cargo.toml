@@ -1,0 +1,33 @@
+[package]
+name = "paraclete-tui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Terminal operator console for Paraclete (HTTP API only)."
+
+[[bin]]
+name = "paraclete-tui"
+path = "src/main.rs"
+
+[dependencies]
+paraclete-cli = { path = "../paraclete-cli" }
+paraclete-types.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+camino.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time"] }
+reqwest.workspace = true
+ratatui = "0.29"
+crossterm = "0.28"
+
+[dev-dependencies]
+paraclete-service = { path = "../paraclete-service" }
+paraclete-store = { path = "../paraclete-store" }
+tempfile = "3"
+tower.workspace = true
+http-body-util.workspace = true
+axum.workspace = true
+uuid.workspace = true

@@ -47,7 +47,9 @@ pub enum FindingCodeError {
 /// - `system.<domain>.<name>[.<sub>...]` — at least three dot segments after `system`.
 /// - `plugin.<plugin_id>.<name>[.<sub>...]` — `plugin_id` must be `[a-z0-9_-]+`.
 /// - `user.<name>[.<sub>...]` — at least two segments total.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(transparent)]
 pub struct FindingCode(pub String);
 

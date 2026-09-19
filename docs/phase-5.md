@@ -17,7 +17,7 @@ End-to-end today:
 
 | Area | Paths |
 |------|--------|
-| New crate | `crates/paraclete-service/` (`Cargo.toml`, `src/lib.rs`, `src/error.rs`, `src/api_types.rs`, `src/service.rs`, `src/http/mod.rs`, `src/http/handlers.rs`, `src/openapi.rs`, `src/bin/paraclete-http.rs`, `tests/http_api.rs`) |
+| New crate | `crates/paraclete-service/` (`Cargo.toml`, `src/lib.rs`, `src/error.rs`, `src/api_types.rs`, `src/service.rs`, `src/http/mod.rs`, `src/http/handlers.rs`, `src/openapi/`, `src/bin/paraclete-http.rs`, `tests/http_api.rs`) |
 | Store | `migrations/20250416100000_run_summary_json.sql`, `sqlite_store.rs` (`summary_json` on persist, `get_run_public_meta`, `load_stored_scan_summary`, asset/finding counts + pages, `Stored*` rows, `RunPublicMeta`), `labels.rs` (`parse_data_format`), `lib.rs` exports |
 | Types | `run.rs` (`RedactionPolicy::transport_safe_persist`) |
 | Workspace | Root `Cargo.toml` (member, axum, tower, tower-http, utoipa, hyper, http-body-util, urlencoding) |
@@ -86,7 +86,7 @@ Axum JSON parse failures may return **400/422** without the Paraclete envelope (
 
 ## 7. OpenAPI
 
-- Generated structurally with **`utoipa::openapi::OpenApiBuilder`** in `crates/paraclete-service/src/openapi.rs`.
+- Evolved in Phase 12 to **`utoipa::OpenApi`** + path stubs (`crates/paraclete-service/src/openapi/`); Phase 5 originally used **`OpenApiBuilder`**.
 - Served as JSON from **`GET /api/v1/openapi.json`** (same router as the API).
 - Tests assert presence of key paths (`/api/v1/health`, `/api/v1/scans`, `/api/v1/diff`).
 

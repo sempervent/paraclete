@@ -20,6 +20,9 @@ pub struct Cli {
     pub base_url: String,
     #[arg(long, global = true, help = "Emit JSON instead of human-readable output")]
     pub json: bool,
+    /// Bearer token for `Authorization` (all requests except `health` when the server requires auth).
+    #[arg(long, global = true, env = "PARACLETE_TOKEN")]
+    pub token: Option<String>,
     #[command(subcommand)]
     pub command: Command,
 }
@@ -28,6 +31,9 @@ pub struct Cli {
 pub enum Command {
     /// Check `GET /api/v1/health`
     Health,
+    /// Show authenticated identity (`GET /api/v1/whoami`)
+    #[command(alias = "whoami")]
+    WhoAmI,
     /// Fetch diff between two runs
     Diff { left_run_id: Uuid, right_run_id: Uuid },
     #[command(subcommand)]
@@ -36,6 +42,29 @@ pub enum Command {
     Job(JobCmd),
     #[command(subcommand)]
     Run(RunCmd),
+    #[command(subcommand)]
+    Token(TokenCmd),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TokenCmd {
+    /// Create a bearer token (admin only; secret shown once)
+    Create {
+        #[arg(long)]
+        label: String,
+        #[arg(long)]
+        role: String,
+        #[arg(long)]
+        note: Option<String>,
+    },
+    /// List tokens (safe metadata only)
+    List,
+    /// Show token metadata
+    Get { token_id: Uuid },
+    /// Disable a token
+    Disable { token_id: Uuid },
+    /// Rotate a token (new secret once; old token disabled)
+    Rotate { token_id: Uuid },
 }
 
 #[derive(Subcommand, Debug)]

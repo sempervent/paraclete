@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::DataFormat;
 
 /// How the engine grouped files into a logical Parquet dataset (co-location / inference signal).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum GroupingKind {
     /// A single readable Parquet file (or lone member after splits).
@@ -21,7 +21,7 @@ pub enum GroupingKind {
 }
 
 /// Hive-style directory partitioning vs co-located files without partition columns.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PartitionLayout {
     /// No Hive `key=value` directory segments observed on member paths.
@@ -31,7 +31,7 @@ pub enum PartitionLayout {
 }
 
 /// Legacy partition scheme label (superseded by [`PartitionLayout`] + [`GroupingKind`] on [`Dataset`]).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PartitionScheme {
     None,
@@ -42,15 +42,16 @@ pub enum PartitionScheme {
 }
 
 /// A single partition key/value pair.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, utoipa::ToSchema)]
 pub struct PartitionSegment {
     pub key: String,
     pub value: String,
 }
 
 /// One file discovered as part of a dataset inventory.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct DatasetFile {
+    #[schema(value_type = String)]
     pub path: Utf8PathBuf,
     pub format: DataFormat,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -60,7 +61,7 @@ pub struct DatasetFile {
 }
 
 /// Placeholder for future column-level statistics and histograms.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ColumnProfile {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -70,7 +71,7 @@ pub struct ColumnProfile {
 }
 
 /// Field definition within a schema snapshot.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct FieldDefinition {
     pub name: String,
     pub logical_type: String,
@@ -78,13 +79,13 @@ pub struct FieldDefinition {
 }
 
 /// Captured schema view at scan time.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SchemaSnapshot {
     pub fields: Vec<FieldDefinition>,
 }
 
 /// A logical dataset grouping one or more files under a single identity.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Dataset {
     pub dataset_id: String,
     /// Why these files were grouped together (path anchor, schema split, etc.).

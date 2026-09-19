@@ -7,7 +7,9 @@ use uuid::Uuid;
 use crate::{DataFormat, ScanTarget};
 
 /// Coarse scan depth presets.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ScanProfile {
     Quick,
@@ -17,7 +19,19 @@ pub enum ScanProfile {
 }
 
 /// How a scan should treat incremental state (placeholder for later phases).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, Default)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    Default,
+    utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ScanMode {
     #[default]
@@ -26,7 +40,7 @@ pub enum ScanMode {
 }
 
 /// Tunables that influence engine behavior without changing the target identity.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ScanOptions {
     #[serde(default)]
     pub mode: ScanMode,
@@ -49,7 +63,7 @@ impl Default for ScanOptions {
 }
 
 /// A complete request to execute a scan against a target.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ScanRequest {
     pub scan_id: Uuid,
     pub target: ScanTarget,

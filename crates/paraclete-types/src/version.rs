@@ -12,12 +12,16 @@ pub const CONTRACT_SCHEMA_VERSION: &str = "0.5.0";
 pub const REPORT_FORMAT_VERSION: &str = "0.5.0";
 
 /// Newtype wrapper for contract schema version strings.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(transparent)]
 pub struct ContractSchemaVersion(pub String);
 
 /// Newtype wrapper for report format version strings.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, utoipa::ToSchema,
+)]
 #[serde(transparent)]
 pub struct ReportFormatVersion(pub String);
 
